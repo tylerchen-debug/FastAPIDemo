@@ -74,10 +74,83 @@ Configure the following Secrets in your GitHub repository (Settings → Secrets 
 
 | Secret Name | Required | Description |
 |-------------|----------|-------------|
-| `AWS_ACCESS_KEY_ID` | Yes | AWS IAM user Access Key ID with permissions for ECR, ECS, CloudFormation, EC2, ELB, IAM, CloudWatch Logs, etc. |
-| `AWS_SECRET_ACCESS_KEY` | Yes | AWS IAM user Secret Access Key |
+| `AWS_ROLE_ARN` | Yes | ARN of the IAM role assumed via GitHub OIDC (e.g., `arn:aws:iam::123456789:role/github-actions-deploy`) with permissions for ECR, ECS, CloudFormation, EC2, ELB, IAM, CloudWatch Logs, etc. |
 | `DOMAIN_NAME` | No | Your domain name (e.g., `api.example.com`), enables HTTPS when configured |
 | `CERTIFICATE_ARN` | No | ACM Certificate ARN (e.g., `arn:aws:acm:us-east-1:123456789:certificate/xxx`) |
+
+### Configure IAM Role (OIDC)
+
+Authentication uses GitHub OIDC, so no long-lived AWS keys are needed.
+
+1. **Create the OIDC identity provider** (one-time per account) in IAM → Identity providers → Add provider:
+   - Provider type: `OpenID Connect`
+   - Provider URL: `https://token.actions.githubusercontent.com`
+   - Audience: `sts.amazonaws.com`
+2. **Create the IAM role** in IAM → Roles → Create role:
+   - Trusted entity type: **Web identity**
+   - Identity provider: `token.actions.githubusercontent.com`, Audience: `sts.amazonaws.com`
+   - GitHub organization/repository/branch: your owner, `FastAPIDemo`, `main`
+   - Attach permissions for ECR, ECS, CloudFormation, EC2, ELB, IAM, CloudWatch Logs
+3. Copy the role ARN into the `AWS_ROLE_ARN` secret.
+
+Or do it entirely from the CLI (replace `OWNER` with your GitHub org/username and the account ID `123456789`):
+
+```bash
+# 1. Create the OIDC identity provider (skip if it already exists)
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com
+
+# 2. Write the trust policy
+cat > trust-policy.json <<'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::123456789:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:OWNER/FastAPIDemo:ref:refs/heads/main"
+        }
+      }
+    }
+  ]
+}
+EOF
+
+# 3. Create the role
+aws iam create-role \
+  --role-name github-actions-deploy \
+  --assume-role-policy-document file://trust-policy.json
+
+# 4. Attach permissions (PowerUserAccess is broad; scope it down for production)
+aws iam attach-role-policy \
+  --role-name github-actions-deploy \
+  --policy-arn arn:aws:iam::aws:policy/PowerUserAccess
+```
+
+### Obtain AWS_ROLE_ARN
+
+After creating the IAM role above, copy its ARN into the `AWS_ROLE_ARN` secret.
+
+From the console: IAM → Roles → open your role → copy the **ARN** shown at the top (e.g., `arn:aws:iam::123456789:role/github-actions-deploy`).
+
+Or from the CLI:
+
+```bash
+aws iam get-role \
+  --role-name github-actions-deploy \
+  --query "Role.Arn" --output text
+```
+
+Put that ARN into the `AWS_ROLE_ARN` secret.
 
 ### Deployment
 
@@ -85,7 +158,7 @@ Configure the following Secrets in your GitHub repository (Settings → Secrets 
 - Or manually trigger the workflow from the GitHub Actions page
 
 **HTTP Mode (default):**
-- Only requires `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+- Only requires `AWS_ROLE_ARN`
 - ALB listens on port 80
 
 **HTTPS Mode (optional):**
