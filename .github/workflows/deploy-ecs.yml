@@ -7,11 +7,11 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: flask-demo
-  ECS_CLUSTER: flask-demo-cluster
-  ECS_SERVICE: flask-demo-service
-  ECS_TASK_DEFINITION: flask-demo-task
-  CONTAINER_NAME: flask-demo
+  ECR_REPOSITORY: fastapi-demo
+  ECS_CLUSTER: fastapi-demo-cluster
+  ECS_SERVICE: fastapi-demo-service
+  ECS_TASK_DEFINITION: fastapi-demo-task
+  CONTAINER_NAME: fastapi-demo
   CONTAINER_PORT: 8080
 
 jobs:
@@ -88,7 +88,7 @@ jobs:
           ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          STACK_NAME="flask-demo-stack"
+          STACK_NAME="fastapi-demo-stack"
           CONTAINER_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           
           # Determine if HTTPS should be enabled
@@ -119,7 +119,7 @@ jobs:
       - name: Get Stack Outputs
         id: get-outputs
         run: |
-          STACK_NAME="flask-demo-stack"
+          STACK_NAME="fastapi-demo-stack"
           ALB_DNS=$(aws cloudformation describe-stacks \
             --stack-name $STACK_NAME \
             --query 'Stacks[0].Outputs[?OutputKey==`ALBDNSName`].OutputValue' \

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ECS Fargate with ALB - Flask Demo Application'
+Description: 'ECS Fargate with ALB - FastAPI Demo Application'
 
 Parameters:
   ContainerImage:
@@ -8,7 +8,7 @@ Parameters:
 
   ContainerName:
     Type: String
-    Default: flask-demo
+    Default: fastapi-demo
     Description: Name of the container
 
   ContainerPort:
@@ -18,17 +18,17 @@ Parameters:
 
   ClusterName:
     Type: String
-    Default: flask-demo-cluster
+    Default: fastapi-demo-cluster
     Description: Name of the ECS cluster
 
   ServiceName:
     Type: String
-    Default: flask-demo-service
+    Default: fastapi-demo-service
     Description: Name of the ECS service
 
   TaskDefinitionName:
     Type: String
-    Default: flask-demo-task
+    Default: fastapi-demo-task
     Description: Name of the task definition
 
   DesiredCount:
@@ -325,9 +325,6 @@ Resources:
               awslogs-group: !Ref LogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
-          Environment:
-            - Name: SPRING_PROFILES_ACTIVE
-              Value: prod
       Tags:
         - Key: Name
           Value: !Ref TaskDefinitionName
